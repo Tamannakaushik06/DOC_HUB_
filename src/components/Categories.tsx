@@ -361,7 +361,6 @@ const Categories = () => {
                         <FileText className="w-5 h-5 text-gray-500" />
                         <div>
                           <h4 className="font-medium">{doc.title || doc.name || "Untitled Document"}</h4>
-                          <p className="text-sm text-gray-500">{doc.size} • {doc.uploadDate} • {doc.uploader}</p>
                           {doc.fileUrl && <p className="text-xs text-green-600">✓ File available</p>}
                           {!doc.fileUrl && <p className="text-xs text-orange-600">⚠ File not available</p>}
                         </div>
@@ -457,10 +456,18 @@ const Categories = () => {
             <DialogHeader>
               <DialogTitle className="flex items-center space-x-2">
                 <FileText className="w-5 h-5" />
-                <span>{commentingDoc?.name}'s Comments</span>
+                <span>Comments</span>
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+              <div className="border-b pb-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div><strong>Uploader:</strong> {commentingDoc?.uploaded_by || commentingDoc?.uploader || 'N/A'}</div>
+                  <div><strong>Upload Date:</strong> {commentingDoc?.created_at ? commentingDoc.created_at.split('T')[0] : commentingDoc?.uploadDate || 'N/A'}</div>
+                  <div><strong>Size:</strong> {commentingDoc?.file_size ? (commentingDoc.file_size / (1024*1024)).toFixed(2) + ' MB' : commentingDoc?.size || 'N/A'}</div>
+                  <div><strong>Category:</strong> {commentingDoc?.category || 'N/A'}</div>
+                </div>
+              </div>
               <div className="space-y-3">
                 <Label htmlFor="newComment" className="text-sm font-medium">Add Comment</Label>
                 <Textarea

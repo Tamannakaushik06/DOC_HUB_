@@ -200,7 +200,7 @@ const Users = () => {
                 As a User, you have limited access to user management. You can only edit your own profile.
               </p>
               <Button 
-                onClick={() => handleEditUser(users.find(u => u.email === currentUser?.email))}
+                onClick={() => handleEditUser(currentUser)}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 <Edit className="w-4 h-4 mr-2" />

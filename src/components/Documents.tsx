@@ -8,7 +8,7 @@ import { FileText, Upload, Search, Download, Edit, Trash2, Eye, Plus, MessageSqu
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { documentsAPI, categoriesAPI } from '../services/api';
+import { documentsAPI, categoriesAPI, commentsAPI } from '../services/api';
 
 interface DocumentType {
   id: number;
@@ -168,43 +168,60 @@ const Documents = () => {
     handleView(doc);
   };
 
-  const handleComment = (doc) => {
+  const handleComment = async (doc) => {
     setCommentingDoc(doc);
     setNewComment('');
+    // Fetch comments from backend
+    try {
+      const res = await commentsAPI.getComments(doc.id);
+      if (res.data.success) {
+        setComments(prev => ({ ...prev, [doc.id]: res.data.comments }));
+      } else {
+        setComments(prev => ({ ...prev, [doc.id]: [] }));
+      }
+    } catch (err) {
+      setComments(prev => ({ ...prev, [doc.id]: [] }));
+    }
   };
 
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
     if (!newComment.trim()) return;
-
-    const comment = {
-      id: Date.now(),
-      user: user?.name || 'Current User',
-      comment: newComment.trim(),
-      date: new Date().toLocaleDateString(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    setComments(prev => ({
-      ...prev,
-      [commentingDoc.id]: [...(prev[commentingDoc.id] || []), comment]
-    }));
-
-    setNewComment('');
-    toast({
-      title: "Comment added",
-      description: "Your comment has been added successfully",
-    });
+    try {
+      await commentsAPI.addComment(commentingDoc.id, newComment.trim());
+      // Refetch comments after adding
+      const res = await commentsAPI.getComments(commentingDoc.id);
+      setComments(prev => ({ ...prev, [commentingDoc.id]: res.data.comments }));
+      setNewComment('');
+      toast({
+        title: "Comment added",
+        description: "Your comment has been added successfully",
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err?.response?.data?.error || 'Failed to add comment',
+        variant: 'destructive'
+      });
+    }
   };
 
-  const handleDeleteComment = (docId, commentId) => {
-    setComments(prev => ({
-      ...prev,
-      [docId]: prev[docId]?.filter(comment => comment.id !== commentId) || []
-    }));
-    toast({
-      title: "Comment deleted",
-      description: "Comment has been removed",
-    });
+  const handleDeleteComment = async (docId, commentId) => {
+    try {
+      await commentsAPI.deleteComment(commentId);
+      // Refetch comments after deleting
+      const res = await commentsAPI.getComments(docId);
+      setComments(prev => ({ ...prev, [docId]: res.data.comments }));
+      toast({
+        title: "Comment deleted",
+        description: "Comment has been removed",
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err?.response?.data?.error || 'Failed to delete comment',
+        variant: 'destructive'
+      });
+    }
   };
 
   const renderFilePreview = (doc) => {
@@ -462,16 +479,16 @@ const Documents = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <FileText className="w-5 h-5" />
-              <span>{commentingDoc?.name}'s Comments</span>
+              <span>Comments</span>
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="border-b pb-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><strong>Category:</strong> {commentingDoc?.category}</div>
-                <div><strong>Size:</strong> {commentingDoc?.size}</div>
-                <div><strong>Upload Date:</strong> {commentingDoc?.uploadDate}</div>
-                <div><strong>Uploader:</strong> {commentingDoc?.uploader}</div>
+                <div><strong>Uploader:</strong> {commentingDoc?.uploaded_by || commentingDoc?.uploader || 'N/A'}</div>
+                <div><strong>Upload Date:</strong> {commentingDoc?.created_at ? commentingDoc.created_at.split('T')[0] : commentingDoc?.uploadDate || 'N/A'}</div>
+                <div><strong>Size:</strong> {commentingDoc?.file_size ? (commentingDoc.file_size / (1024*1024)).toFixed(2) + ' MB' : commentingDoc?.size || 'N/A'}</div>
+                <div><strong>Category:</strong> {commentingDoc?.category || 'N/A'}</div>
               </div>
             </div>
             
@@ -503,10 +520,10 @@ const Documents = () => {
                   <div key={comment.id} className="border rounded-lg p-3 bg-gray-50">
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex items-center space-x-2">
-                        <span className="font-medium text-sm">{comment.user}</span>
-                        <span className="text-xs text-gray-500">{comment.date} at {comment.time}</span>
+                        <span className="font-medium text-sm">{comment.author || comment.user}</span>
+                        <span className="text-xs text-gray-500">{comment.date ? `${comment.date}${comment.time ? ' at ' + comment.time : ''}` : ''}</span>
                       </div>
-                      {(user?.name === comment.user || user?.role === 'Admin') && (
+                      {(user?.name === (comment.author || comment.user) || user?.role === 'Admin') && (
                         <Button 
                           variant="ghost" 
                           size="sm" 
